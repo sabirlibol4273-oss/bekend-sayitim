@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const db = require('../config/db');
 const { authTalab } = require('../middleware/auth');
-const { tumanScope, hududSharti } = require('../middleware/tumanScope');
+const { tumanScope, hududSharti, sqlNorm, oqituvchiSharti } = require('../middleware/tumanScope');
 
 router.use(authTalab, tumanScope);
 
@@ -85,6 +85,47 @@ router.get('/maktablar', async (req, res, next) => {
       LEFT JOIN test_results r ON r.user_id = u.id AND r.created_at > NOW() - INTERVAL '${kun} days'
       WHERE ${shart}
       GROUP BY 1 ORDER BY ortacha DESC NULLS LAST, jami DESC`, params);
+    res.json(rows);
+  } catch (e) { next(e); }
+});
+
+// GET /api/statistika/tumanlar-reyting?kun=30
+// Barcha tumanlar o'qituvchilari bo'yicha reyting (faqat umumiy raqamlar). O'z tumani "meniki".
+router.get('/tumanlar-reyting', async (req, res, next) => {
+  try {
+    const kun = kunlar(req.query.kun);
+    const { rows } = await db.query(`
+      SELECT ${sqlNorm('u.district')} AS kalit, MIN(u.district) AS tuman, MIN(u.region) AS viloyat,
+             COUNT(DISTINCT u.id)::int AS oqituvchi,
+             COUNT(DISTINCT r.user_id)::int AS faol,
+             COUNT(r.id)::int AS testlar,
+             ROUND(AVG(r.score)::numeric, 1) AS ortacha
+      FROM users u
+      LEFT JOIN test_results r ON r.user_id = u.id AND r.created_at > NOW() - INTERVAL '${kun} days'
+      WHERE COALESCE(u.district,'') <> '' AND ${oqituvchiSharti('u')}
+      GROUP BY 1
+      ORDER BY ortacha DESC NULLS LAST, faol DESC, oqituvchi DESC`);
+    let o = 0;
+    res.json(rows.map(r => ({ ...r, orin: r.ortacha != null ? ++o : null, meniki: r.kalit === req.hudud.tumanNorm })));
+  } catch (e) { next(e); }
+});
+
+// GET /api/statistika/faoliyat?limit=40 — o'z tumanida kim, qachon, qaysi testni yechgan
+router.get('/faoliyat', async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 40, 1), 200);
+    const params = [];
+    const shart = hududSharti(req.hudud, params);
+    params.push(limit);
+    const { rows } = await db.query(`
+      SELECT * FROM (
+        SELECT 'mavzu' AS tur, r.created_at AS vaqt, COALESCE(r.topic_name, 'Mavzu ' || r.topic_id) AS test,
+               r.score, r.correct, r.total, u.id AS user_id, u.name, u.school
+        FROM test_results r JOIN users u ON u.id = r.user_id WHERE ${shart}
+        UNION ALL
+        SELECT 'onlayn', r.submitted_at, t.title, r.score, r.correct, r.total, u.id, u.name, u.school
+        FROM online_results r JOIN online_tests t ON t.id = r.test_id JOIN users u ON u.id = r.user_id WHERE ${shart}
+      ) f ORDER BY vaqt DESC LIMIT $${params.length}`, params);
     res.json(rows);
   } catch (e) { next(e); }
 });
