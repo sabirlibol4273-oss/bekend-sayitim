@@ -43,8 +43,8 @@ function hududSharti(hudud, params, alias = 'u') {
     params.push(hudud.tumanNorm);
     shartlar.push(`${sqlNorm(`${alias}.district`)} = $${params.length}`);
   }
-  // O'qituvchi filtri: ?faqat_oqituvchi=1 bo'lsa faqat fani belgilanganlar
-  if (hudud.faqatOqituvchi) shartlar.push(oqituvchiSharti(alias));
+  // Tuman paneli FAQAT o'qituvchilarni ko'radi (o'quvchilar — asosiy admin panelda)
+  shartlar.push(oqituvchiSharti(alias));
   if (hudud.fan) {
     params.push(hudud.fan.toLowerCase().trim());
     shartlar.push(`LOWER(TRIM(${alias}.fan)) = $${params.length}`);
