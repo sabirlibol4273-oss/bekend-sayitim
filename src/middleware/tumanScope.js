@@ -31,6 +31,11 @@ function tumanScope(req, res, next) {
   next();
 }
 
+// O'qituvchi: fani belgilangan YOKI ilovada sinf o'rniga "Ustoz" tanlagan
+function oqituvchiSharti(alias = 'u') {
+  return `(COALESCE(${alias}.fan,'') <> '' OR LOWER(COALESCE(${alias}.grade,'')) LIKE '%ustoz%' OR LOWER(COALESCE(${alias}.grade,'')) LIKE '%qituvchi%')`;
+}
+
 // users jadvali uchun hudud sharti: params massiviga qiymat qo'shib, SQL bo'lagini qaytaradi
 function hududSharti(hudud, params, alias = 'u') {
   const shartlar = [];
@@ -39,7 +44,7 @@ function hududSharti(hudud, params, alias = 'u') {
     shartlar.push(`${sqlNorm(`${alias}.district`)} = $${params.length}`);
   }
   // O'qituvchi filtri: ?faqat_oqituvchi=1 bo'lsa faqat fani belgilanganlar
-  if (hudud.faqatOqituvchi) shartlar.push(`COALESCE(${alias}.fan,'') <> ''`);
+  if (hudud.faqatOqituvchi) shartlar.push(oqituvchiSharti(alias));
   if (hudud.fan) {
     params.push(hudud.fan.toLowerCase().trim());
     shartlar.push(`LOWER(TRIM(${alias}.fan)) = $${params.length}`);
@@ -47,4 +52,4 @@ function hududSharti(hudud, params, alias = 'u') {
   return shartlar.length ? shartlar.join(' AND ') : 'TRUE';
 }
 
-module.exports = { tumanScope, normalla, sqlNorm, hududSharti };
+module.exports = { tumanScope, normalla, sqlNorm, hududSharti, oqituvchiSharti };

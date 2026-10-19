@@ -2,7 +2,7 @@ const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const db = require('../config/db');
 const { authTalab, faqatSuper } = require('../middleware/auth');
-const { sqlNorm } = require('../middleware/tumanScope');
+const { sqlNorm, oqituvchiSharti } = require('../middleware/tumanScope');
 
 router.use(authTalab, faqatSuper);
 
@@ -22,7 +22,7 @@ router.get('/tumanlar', async (req, res, next) => {
     const { rows } = await db.query(`
       SELECT MIN(region) AS viloyat, MIN(district) AS tuman,
              COUNT(*)::int AS jami,
-             COUNT(*) FILTER (WHERE COALESCE(fan,'') <> '')::int AS oqituvchi
+             COUNT(*) FILTER (WHERE ${oqituvchiSharti('users')})::int AS oqituvchi
       FROM users
       WHERE COALESCE(district,'') <> ''
       GROUP BY ${sqlNorm('district')}
